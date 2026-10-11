@@ -1,6 +1,6 @@
 // Tarnished's Ledger – offline support.
 // Bump VERSION whenever you change index.html so phones pick up the new version.
-const VERSION = "ledger-v6";
+const VERSION = "ledger-v7";
 const CORE = [
   "./",
   "./index.html",

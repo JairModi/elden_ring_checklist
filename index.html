@@ -151,6 +151,44 @@ section.cat { display: grid; gap: 0; }
 .backup { display: flex; gap: 8px; flex-wrap: wrap; }
 .backup .danger { cursor: pointer; }
 .more { color: var(--gold); background: none; border: 0; padding: 8px 0; justify-self: start; }
+/* ---- wide screens: sidebar + multi-column lists ---- */
+.side { display: none; }
+.sd-h { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 0 10px 8px; }
+.sd { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; text-align: left; background: none; border: 0;
+  border-radius: 8px; padding: 8px 10px; color: var(--fg); transition: background-color .2s, transform .15s; }
+.sd:hover { background: var(--surface); }
+.sd:active { transform: scale(.98); }
+.sd.on { background: var(--raise); box-shadow: inset 2px 0 0 var(--gold); }
+.sd-n { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd.on .sd-n { color: var(--gold); }
+.sd.full .sd-n::after { content: " ✦"; color: var(--gold); }
+.sd-p { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.sd-bar { grid-column: 1 / -1; height: 3px; background: var(--track); border-radius: 2px; overflow: hidden; }
+.sd-bar i { display: block; height: 100%; background: var(--gold); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+
+@media (min-width: 1024px) {
+  .wrap { max-width: 1520px; padding-inline: 32px; }
+  header.top { margin-inline: -32px; padding: 14px 32px 12px; column-gap: 28px; align-items: center;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 520px) minmax(0, auto); }
+  header.top .brand { grid-column: 1; grid-row: 1; }
+  header.top .tools { grid-column: 2; grid-row: 1; }
+  header.top .sync { grid-column: 3; grid-row: 1; justify-self: end; }
+  header.top .bar { grid-column: 1 / -1; grid-row: 2; }
+  .strip { display: none; }
+  .brand h1 { font-size: 1.9rem; }
+  .shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; align-items: start; }
+  .side { display: grid; gap: 2px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--hh, 0px));
+    max-height: calc(100vh - var(--hh, 0px)); overflow-y: auto; padding-block: 20px; scrollbar-width: thin; }
+  main { padding-top: 24px; gap: 26px; }
+  .intro h2 { font-size: 2.6rem; }
+  .intro p { font-size: 1.05rem; }
+  .regions { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+  .region { padding: 16px 18px; }
+  section.cat { grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); column-gap: 36px; align-items: start; }
+  section.cat > :is(.cat-h, .npc-tools, .cat-note, .empty, .more) { grid-column: 1 / -1; }
+  .sheet { width: 640px; }
+}
+
 /* ---- music toggle ---- */
 .brand-r { display: flex; align-items: center; gap: 10px; }
 .music { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface);
@@ -298,7 +336,10 @@ body.locked { overflow: hidden; }
     </div>
     <div class="sync" id="sync" data-s="">Loading your progress…</div>
   </header>
-  <main id="main"></main>
+  <div class="shell">
+    <aside class="side" id="side" aria-label="Regions"></aside>
+    <main id="main"></main>
+  </div>
 </div>
 
 <div class="scrim" id="scrim" hidden></div>
@@ -374,7 +415,15 @@ body.locked { overflow: hidden; }
     TABS.forEach((tb, t) => chips.push(`<button class="chip" data-view="${t}" aria-pressed="${ui.view === t && !ui.q}">${esc(tb[0])} <small>${pct(countTab(t), byTab[t].length)}%</small></button>`));
     $("strip").innerHTML = chips.join("");
     const act = $("strip").querySelector('[aria-pressed="true"]');
-    if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (act && $("strip").offsetParent) act.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // wide screens: the same regions as a sidebar list
+    const side = [`<button class="sd${ui.view === -1 && !ui.q ? " on" : ""}" data-view="-1"><span class="sd-n">Overview</span><span class="sd-p">${pct(n, t)}%</span></button>`];
+    TABS.forEach((tb, k) => {
+      const d = countTab(k), tot = byTab[k].length, p = pct(d, tot);
+      side.push(`<button class="sd${ui.view === k && !ui.q ? " on" : ""}${d === tot ? " full" : ""}" data-view="${k}">
+        <span class="sd-n">${esc(tb[0])}</span><span class="sd-p">${p}%</span><span class="sd-bar"><i style="width:${p}%"></i></span></button>`);
+    });
+    $("side").innerHTML = `<div class="sd-h">Regions</div>${side.join("")}`;
   }
 
   function rowHTML(i, showTab) {
@@ -807,6 +856,10 @@ body.locked { overflow: hidden; }
     d.open ? ui.open.add(d.dataset.npc) : ui.open.delete(d.dataset.npc);
     ls.set(":npc", [...ui.open]);
   }, true);
+  $("side").addEventListener("click", e => {
+    const b = e.target.closest("[data-view]"); if (!b) return;
+    ui.view = +b.dataset.view; ui.cat = -1; ui.q = ""; $("q").value = ""; ls.set(":view", ui.view); render(true);
+  });
   $("strip").addEventListener("click", e => {
     const b = e.target.closest("[data-view]"); if (!b) return;
     ui.view = +b.dataset.view; ui.cat = -1; ui.q = ""; $("q").value = ""; ls.set(":view", ui.view); render(true);
